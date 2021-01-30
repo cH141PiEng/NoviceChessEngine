@@ -1,6 +1,7 @@
 //Novice is a port of the Butter chess engine to C.
 //Various adjustments/functions from the Video Instruction Chess Engine.
 //It also has various enhancements to alphaBeta from CeeChess.
+//Added code for the evaluation of passed and isolated pawns
 
 #include "stdio.h"
 #include "stdlib.h"
@@ -12,7 +13,7 @@
 typedef unsigned long long U64;
 typedef char string[200];
 
-#define NAME "Novice 1.0"
+#define NAME "Novice 1.1"
 
 #define NUM_SQUARES 64
 #define MAX_GAME_MOVES 2048
@@ -314,6 +315,9 @@ U64 clearMask[65];
 int fileArray[64];
 int rankArray[64];
 
+int FilesBrd[64];
+int RanksBrd[64];
+
 U64 knightAttacks[64];
 U64 kingAttacks[64];
 U64 rookAttacksEmpty[64];
@@ -495,6 +499,105 @@ void initHashKeys() {
     }
 }
 
+int FR2SQ(int f, int r)
+{
+    return f + (r * 8);
+}
+
+void InitFilesRanksBrd() {
+
+    int index = 0;
+    int file = FILE_A;
+    int rank = RANK_1;
+    int sq = A1;
+
+    for (rank = RANK_1; rank <= RANK_8; ++rank) {
+        for (file = FILE_A; file <= FILE_H; ++file) {
+            sq = FR2SQ(file, rank);
+            FilesBrd[sq] = file;
+            RanksBrd[sq] = rank;
+        }
+    }
+}
+
+U64 FileBBMask[8];
+U64 RankBBMask[8];
+
+U64 BlackPassedMask[64];
+U64 WhitePassedMask[64];
+U64 IsolatedMask[64];
+
+void InitEvalMasks() {
+
+    int sq, tsq, r, f;
+
+    for (sq = 0; sq < 8; ++sq) {
+        FileBBMask[sq] = 0ULL;
+        RankBBMask[sq] = 0ULL;
+    }
+
+    for (r = RANK_8; r >= RANK_1; r--) {
+        for (f = FILE_A; f <= FILE_H; f++) {
+            sq = r * 8 + f;
+            FileBBMask[f] |= (1ULL << sq);
+            RankBBMask[r] |= (1ULL << sq);
+        }
+    }
+
+    for (sq = 0; sq < 64; ++sq) {
+        IsolatedMask[sq] = 0ULL;
+        WhitePassedMask[sq] = 0ULL;
+        BlackPassedMask[sq] = 0ULL;
+    }
+
+    for (sq = 0; sq < 64; ++sq) {
+        tsq = sq + 8;
+
+        while (tsq < 64) {
+            WhitePassedMask[sq] |= (1ULL << tsq);
+            tsq += 8;
+        }
+
+        tsq = sq - 8;
+        while (tsq >= 0) {
+            BlackPassedMask[sq] |= (1ULL << tsq);
+            tsq -= 8;
+        }
+
+        if (FilesBrd[sq] > FILE_A) {
+            IsolatedMask[sq] |= FileBBMask[FilesBrd[sq] - 1];
+
+            tsq = sq + 7;
+            while (tsq < 64) {
+                WhitePassedMask[sq] |= (1ULL << tsq);
+                tsq += 8;
+            }
+
+            tsq = sq - 9;
+            while (tsq >= 0) {
+                BlackPassedMask[sq] |= (1ULL << tsq);
+                tsq -= 8;
+            }
+        }
+
+        if (FilesBrd[sq] < FILE_H) {
+            IsolatedMask[sq] |= FileBBMask[FilesBrd[sq] + 1];
+
+            tsq = sq + 9;
+            while (tsq < 64) {
+                WhitePassedMask[sq] |= (1ULL << tsq);
+                tsq += 8;
+            }
+
+            tsq = sq - 7;
+            while (tsq >= 0) {
+                BlackPassedMask[sq] |= (1ULL << tsq);
+                tsq -= 8;
+            }
+        }
+    }
+}
+
 int LMRTable[64][64];
 
 void InitSearch() {
@@ -507,6 +610,9 @@ void InitSearch() {
 void initAll() {
     initBitMasks();
     initFileRankArrays();
+
+    InitFilesRanksBrd();
+    InitEvalMasks();
 
     initKnightAttacks();
     initKingAttacks();
@@ -1516,9 +1622,57 @@ const int evaluatePieceBoards(const int valueBoard[64], const int pieceValue, U6
     return score;
 }
 
+const int BitTable[64] = {
+  63, 30, 3, 32, 25, 41, 22, 33, 15, 50, 42, 13, 11, 53, 19, 34, 61, 29, 2,
+  51, 21, 43, 45, 10, 18, 47, 1, 54, 9, 57, 0, 35, 62, 31, 40, 4, 49, 5, 52,
+  26, 60, 6, 23, 44, 46, 27, 56, 16, 7, 39, 48, 24, 59, 14, 12, 55, 38, 28,
+  58, 20, 37, 17, 36, 8
+};
+
+int PopBit(U64* bb) {
+    U64 b = *bb ^ (*bb - 1);
+    unsigned int fold = (unsigned)((b & 0xffffffff) ^ (b >> 32));
+    *bb &= (*bb - 1);
+    return BitTable[(fold * 0x783a9b23) >> 26];
+}
+
+const int PawnIsolated = -10;
+const int PawnPassed[8] = { 0, 5, 10, 20, 35, 60, 100, 200 };
+
 int evaluatePosition(const Board* position) {
     int earlyEval = (bitCount(position->pieceBB[WHITE_PAWN])/*bitCount(wP)*/ - bitCount(position->pieceBB[BLACK_PAWN])/*bitCount(bP)*/) * pieceValue[WHITE_PAWN];
     int lateEval = earlyEval;
+
+    U64 whitePawnBitboard = (position->pieceBB[WHITE_PAWN]);
+    U64 blackPawnBitboard = (position->pieceBB[BLACK_PAWN]);
+
+    int eval = 0;
+
+    while (whitePawnBitboard != 0ULL)
+    {
+        int square = PopBit(&whitePawnBitboard);
+
+        if ((IsolatedMask[square] & position->pieceBB[WHITE_PAWN]) == 0) {
+            eval += PawnIsolated;
+        }
+
+        if ((WhitePassedMask[square] & position->pieceBB[BLACK_PAWN]) == 0) {
+            eval += PawnPassed[RanksBrd[square]];
+        }
+    }
+
+    while (blackPawnBitboard != 0ULL)
+    {
+        int square = PopBit(&blackPawnBitboard);
+
+        if ((IsolatedMask[square] & position->pieceBB[BLACK_PAWN]) == 0) {
+            eval -= PawnIsolated;
+        }
+
+        if ((BlackPassedMask[square] & position->pieceBB[WHITE_PAWN]) == 0) {
+            eval -= PawnPassed[7 - RanksBrd[square]];
+        }
+    }
 
     earlyEval += evaluatePieceBoards(pawnTableEarly, 0, position->pieceBB[WHITE_PAWN], position->pieceBB[BLACK_PAWN]);
     earlyEval += evaluatePieceBoards(knightTableEarly, pieceValue[WHITE_KNIGHT], position->pieceBB[WHITE_KNIGHT], position->pieceBB[BLACK_KNIGHT]);
@@ -1536,6 +1690,8 @@ int evaluatePosition(const Board* position) {
 
     double gameProgress = (bitCount(position->occupiedBB)) / 32.0;
     int evaluation = (int)((gameProgress * earlyEval) + ((1 - gameProgress) * lateEval));
+
+    evaluation = evaluation + eval;
 
     if (position->side == WHITE)
     {
@@ -2112,7 +2268,7 @@ static int alphaBeta(Board* position, SearchInfo* info, int alpha, int beta, int
 
     const int positionEval = evaluatePosition(position);
 
-    // Razoring (alpha)
+    // Razoring
     if (depth <= RazorDepth && !pvMove && !InCheck && positionEval + RazorMargin[depth] <= alpha) {
         // drop into qSearch if move most likely won't beat alpha
         score = quiescence(position, info, alpha - RazorMargin[depth], beta - RazorMargin[depth]);
@@ -2222,7 +2378,6 @@ static int alphaBeta(Board* position, SearchInfo* info, int alpha, int beta, int
 
         }
 
-        //TakeMove(position);
         unmakeMove(position);
 
         if (info->stopped == 1) {
@@ -2431,7 +2586,7 @@ void uci(Board *position, SearchInfo *info) {
     setbuf(stdout, NULL);
 
     char input[INPUTBUFFER];
-    printf("id name Novice 1.0\n");
+    printf("id name Novice 1.1\n");
     printf("id author Jay Warendorff\n");;
     printf("uciok\n");
 
@@ -2461,7 +2616,7 @@ void uci(Board *position, SearchInfo *info) {
             info->quit = 1;
         }
         else if (!strncmp(input, "uci", 3)) {
-            printf("id name Novice 1.0\n");
+            printf("id name Novice 1.1\n");
             printf("id author Jay Warendorff\n");;
             printf("uciok\n");
         }

@@ -138,130 +138,149 @@ enum {
     FLAG_NONE, FLAG_ALPHA, FLAG_BETA, FLAG_EXACT
 };
 
-const int pawnTableEarly[64] = {
-   0,   0,   0,   0,   0,   0,   0,   0,
-  10,  10,   0, -10, -10,   0,  10,  10,
-   5,   0,   0,   5,   5,   0,   0,   5,
-   0,   0,  10,  20,  20,  10,   0,   0,
-   5,   5,   5,  10,  10,   5,   5,   5,
-  10,  10,  10,  20,  20,  10,  10,  10,
-  20,  20,  20,  30,  30,  20,  20,  20,
-   0,   0,   0,   0,   0,   0,   0,   0
-};
-const int pawnTableLate[64] = {
-   0,   0,   0,   0,   0,   0,   0,   0,
-  -5,  -5,  -5,  -5,  -5,  -5,  -5,  -5,
-   0,   0,   0,   0,   0,   0,   0,   0,
-   5,   5,   5,   5,   5,   5,   5,   5,
-  10,  10,  10,  10,  10,  10,  10,  10,
-  15,  15,  15,  15,  15,  15,  15,  15,
-  20,  20,  20,  20,  20,  20,  20,  20,
-   0,   0,   0,   0,   0,   0,   0,   0,
+// Piece Square Tables (by Lyudmil)
+const int PawnMG[64] =
+{
+    0,   0,   0,   0,   0,   0,   0,   0,
+    -5,  -2,   4,   5,   5,   4,  -2,  -5,
+    -4,  -2,   5,   7,   7,   5,  -2,  -4,
+    -2,  -1,   9,  13,  13,   9,  -1,  -2,
+    2,   4,  13,  21,  21,  13,   4,   2,
+    10,  21,  25,  29,  29,  25,  21,  10,
+    1,   2,   5,   9,   9,   5,   2,   1,             // Pawns 7 Rank
+    0,   0,   0,   0,   0,   0,   0,   0
 };
 
-const int knightTableEarly[64] = {
-   0, -10,   0,   0,   0,   0, -10,   0,
-   0,   0,   0,   5,   5,   0,   0,   0,
-   0,   0,  10,  10,  10,  10,   0,   0,
-   0,   5,  10,  20,  20,  10,   5,   0,
-   5,  10,  15,  20,  20,  15,  10,   5,
-   5,  10,  10,  20,  20,  10,  10,   5,
-   0,   0,   5,  10,  10,   5,   0,   0,
-   0,   0,   0,   0,   0,   0,   0,   0
-};
-const int knightTableLate[64] = {
- -10,  -5,  -5,  -5,  -5,  -5,  -5, -10,
- -10,  -5,   0,   0,   0,   0,  -5, -10,
- -10,  -5,   0,   5,   5,   0,  -5, -10,
-  -5,   0,   5,  10,  10,   5,   0,  -5,
-   0,   5,  10,  15,  15,  10,   5,   0,
-   0,   5,  10,  15,  15,  10,   5,   0,
-   0,   0,   5,  10,  10,   5,   0,   0,
-  -5,   0,   0,   0,   0,   0,   0,  -5
+const int PawnEG[64] =
+{
+    0,   0,   0,   0,   0,   0,   0,   0,
+    -3,  -1,   2,   3,   3,   2,  -1,  -3,
+    -2,  -1,   3,   4,   4,   3,  -1,  -2,
+    -1,   0,   4,   7,   7,   4,   0,  -1,
+    1,   2,   7,  11,  11,   7,   2,   1,
+    5,  11,  13,  14,  14,  13,  11,   5,
+    0,   1,   3,   5,   5,   3,   1,   0,    // Pawns 7 Rank
+    0,   0,   0,   0,   0,   0,   0,   0
 };
 
-const int bishopTableEarly[64] = {
-   0,   0, -10,   0,   0, -10,   0,   0,
-   0,  10,   0,   5,   5,   0,  10,   0,
-   0,   0,  10,  10,  10,  10,   0,   0,
-   0,   5,  10,  20,  20,  10,   5,   0,
-   5,  10,  15,  20,  20,  15,  10,   5,
-   5,  10,  10,  20,  20,  10,  10,   5,
-   0,   0,   5,  10,  10,   5,   0,   0,
-   0,   0,   0,   0,   0,   0,   0,   0
-};
-const int bishopTableLate[64] = {
-   0,   0,  -5, -10, -10,  -5,   0,   0,
-   0,   5,   0,   0,   0,   0,   5,   0,
-   0,   0,  10,  10,  10,  10,   0,   0,
-   0,   5,  15,  15,  15,  15,   5,   0,
-   5,  10,  15,  20,  20,  15,  10,   5,
-   5,  10,  10,  20,  20,  10,  10,   5,
-   0,   0,   5,  10,  10,   5,   0,   0,
-   0,   0,   0,   0,   0,   0,   0,   0
+const int KnightMG[64] =
+{
+    -31, -23, -20, -16, -16, -20, -23, -31,
+    -23, -16, -12,  -8,  -8, -12, -16, -23,
+    -8,  -4,   0,   8,   8,   0,  -4,  -8,
+    -4,   8,  12,  16,  16,  12,   8,  -4,
+    8,  16,  20,  23,  23,  20,  16,   8,
+    23,  27,  31,  35,  35,  31,  27,  23,
+    4,   8,  12,  16,  16,  12,   8,   4,
+    4,   4,   4,   4,   4,   4,   4,   4,
 };
 
-const int rookTableEarly[64] = {
-   0,   0,   5,  10,  10,   5,   0,   0,
-   0,   0,   5,  10,  10,   5,   0,   0,
-   0,   0,   5,  10,  10,   5,   0,   0,
-   0,   0,   5,  10,  10,   5,   0,   0,
-   0,   0,   5,  10,  10,   5,   0,   0,
-   0,   0,   5,  10,  10,   5,   0,   0,
-  25,  25,  25,  25,  25,  25,  25,  25,
-   0,   0,   5,  10,  10,   5,   0,   0
-};
-const int rookTableLate[64] = {
-   0,   0,   5,  10,  10,   5,   0,   0,
-   0,   0,   5,  10,  10,   5,   0,   0,
-   0,   0,   5,  10,  10,   5,   0,   0,
-   0,   0,   5,  10,  10,   5,   0,   0,
-   0,   0,   5,  10,  10,   5,   0,   0,
-   0,   0,   5,  10,  10,   5,   0,   0,
-  25,  25,  25,  25,  25,  25,  25,  25,
-   0,   0,   5,  10,  10,   5,   0,   0
+const int KnightEG[64] =
+{
+    -39, -27, -23, -20, -20, -23, -27, -39,
+    -27, -20, -12,  -8,  -8, -12, -20, -27,
+    -8,  -4,   0,   8,   8,   0,  -4,  -8,
+    -4,   8,  12,  16,  16,  12,   8,  -4,
+    8,  16,  20,  23,  23,  20,  16,   8,
+    12,  23,  27,  31,  31,  27,  23,  12,
+    -2,   2,   4,   8,   8,   4,   2,  -2,
+    -16,  -8,  -4,  -4,  -4,  -4,  -8, -16,
 };
 
-const int queenTableEarly[64] = {
-  -5,  -5,  -5,  -5,  -5,  -5,  -5,  -5,
-   0,   0,   0,   0,   0,   0,   0,   0,
-   0,   0,   5,   5,   5,   5,   0,   0,
-   0,   0,   5,  10,  10,   5,   0,   0,
-   0,   0,   5,  10,  10,   5,   0,   0,
-   0,   0,   5,   5,   5,   5,   0,   0,
-   0,   0,   0,   0,   0,   0,   0,   0,
-   0,   0,   0,   0,   0,   0,   0,   0
-};
-const int queenTableLate[64] = {
-  -5,  -5,  -5,  -5,  -5,  -5,  -5,  -5,
-  -5,   0,   0,   0,   0,   0,   0,  -5,
-  -5,   0,  10,  10,  10,  10,   0,  -5,
-  -5,   0,  10,  20,  20,  10,   0,  -5,
-  -5,   0,  10,  20,  20,  10,   0,  -5,
-   0,   0,  10,  15,  15,  10,   0,   0,
-  20,  20,  20,  20,  20,  20,  20,  20,
-   0,   0,   5,  10,  10,   5,   0,   0
+const int BishopMG[64] =
+{
+    -31, -23, -20, -16, -16, -20, -23, -31,
+    -23, -16, -12,  -8,  -8, -12, -16, -23,
+    -8,  -4,   0,   8,   8,   0,  -4,  -8,
+    -4,   8,  12,  16,  16,  12,   8,  -4,
+    8,  16,  20,  23,  23,  20,  16,   8,
+    23,  27,  31,  35,  35,  31,  27,  23,
+    4,   8,  12,  16,  16,  12,   8,   4,
+    4,   4,   4,   4,   4,   4,   4,   4,
 };
 
-const int kingTableEarly[64] = {
-   5,   5,  25,   0,   0,   0,  25,   5,
-  -5,  -5,  -5,  -5,  -5,  -5,  -5,  -5,
- -10, -10, -10, -10, -10, -10, -10, -10,
- -10, -10, -10, -10, -10, -10, -10, -10,
- -10, -10, -10, -10, -10, -10, -10, -10,
- -10, -10, -10, -10, -10, -10, -10, -10,
- -10, -10, -10, -10, -10, -10, -10, -10,
- -10, -10, -10, -10, -10, -10, -10, -10
+const int BishopEG[64] =
+{
+    -39, -27, -23, -20, -20, -23, -27, -39,
+    -27, -20, -12,  -8,  -8, -12, -20, -27,
+    -8,  -4,   0,   8,   8,   0,  -4,  -8,
+    -4,   8,  12,  16,  16,  12,   8,  -4,
+    8,  16,  20,  23,  23,  20,  16,   8,
+    12,  23,  27,  31,  31,  27,  23,  12,
+    -2,   2,   4,   8,   8,   4,   2,  -2,
+    -16,  -8,  -4,  -4,  -4,  -4,  -8, -16,
 };
-const int kingTableLate[64] = {
- -10,  -5,  -5,  -5,  -5,  -5,  -5, -10,
-  -5,  -5,  -5,  -5,  -5,  -5,  -5,  -5,
-   5,   5,  10,  10,  10,  10,   5,   5,
-   5,   5,  10,  10,  10,  10,   5,   5,
-  10,  10,  15,  20,  20,  15,  10,  10,
-   5,   5,  10,  10,  10,  10,   5,   5,
-   5,   5,  10,  10,  10,  10,   5,   5,
-   0,   0,   0,   0,   0,   0,   0,   0
+
+const int RookMG[64] =
+{
+    -10,  -8,  -6,  -4,  -4,  -6,  -8, -10,
+    -8,  -6,  -4,  -2,  -2,  -4,  -6,  -8,
+    -4,  -2,   0,   4,   4,   0,  -2,  -4,
+    -2,   2,   4,   8,   8,   4,   2,  -2,
+    2,   4,   8,  12,  12,   8,   4,   2,
+    4,   8,   12, 16,  16,  12,   8,   4,
+    20,  21,   23, 23,  23,  23,  21,  20,
+    18,  18,   20, 20,  20,  20,  18,  18,
+};
+
+const int RookEG[64] =
+{
+    -10,  -8,  -6,  -4,  -4,  -6,  -8, -10,
+    -8,  -6,  -4,  -2,  -2,  -4,  -6,  -8,
+    -4,  -2,   0,   4,   4,   0,  -2,  -4,
+    -2,   2,   4,   8,   8,   4,   2,  -2,
+    2,   4,   8,  12,  12,   8,   4,   2,
+    4,   8,  12,  16,  16,  12,   8,   4,
+    20,  21,  23,  23,  23,  23,  21,  20,
+    18,  18,  20,  20,  20,  20,  18,  18,
+};
+
+const int QueenMG[64] =
+{
+    -23, -20, -16, -12, -12, -16, -20, -23,
+    -18, -14, -12,  -8,  -8, -12, -14, -18,
+    -16,  -8,   0,   8,   8,   0,  -8, -16,
+    -8,   0,  12,  16,  16,  12,   0,  -8,
+    4,  12,  16,  23,  23,  16,  12,   4,
+    16,  23,  27,  31,  31,  27,  23,  16,
+    4,  12,  16,  23,  23,  16,  12,   4,
+    2,   8,  12,  12,  12,  12,   8,   2,
+};
+
+const int QueenEG[64] =
+{
+    -23, -20, -16, -12, -12, -16, -20, -23,
+    -18, -14, -12,  -8,  -8, -12, -14, -18,
+    -16,  -8,   0,   8,   8,   0,  -8, -16,
+    -8,   0,  12,  16,  16,  12,   0,  -8,
+    4,  12,  16,  23,  23,  16,  12,   4,
+    16,  23,  27,  31,  31,  27,  23,  16,
+    4,  12,  16,  23,  23,  16,  12,   4,
+    2,   8,  12,  12,  12,  12,   8,   2,
+};
+
+const int KingMG[64] =
+{
+    40,  50,  30,  10,  10,  30,  50,  40,
+    30,  40,  20,   0,   0,  20,  40,  30,
+    10,  20,   0, -20, -20,   0,  20,  10,
+    0,  10, -10, -30, -30, -10,  10,   0,
+    -10,   0, -20, -40, -40, -20,   0, -10,
+    -20, -10, -30, -50, -50, -30, -10, -20,
+    -30, -20, -40, -60, -60, -40, -20, -30,
+    -40, -30, -50, -70, -70, -50, -30, -40 ,
+};
+
+const int KingEG[64] =
+{
+    -34, -30, -28, -27, -27, -28, -30, -34,
+    -17, -13, -11, -10, -10, -11, -13, -17,
+    -2,   2,   4,   5,   5,   4,   2,  -2,
+    11,  15,  17,  18,  18,  17,  15,  11,
+    22,  26,  28,  29,  29,  28,  26,  22,
+    31,  34,  37,  38,  38,  37,  34,  31,
+    38,  41,  44,  45,  45,  44,  41,  38,
+    42,  46,  48,  50,  50,  48,  46,  42,
 };
 
 const int mirror[64] = {
@@ -1636,28 +1655,48 @@ int PopBit(U64* bb) {
     return BitTable[(fold * 0x783a9b23) >> 26];
 }
 
+const int minorPhase = 1;
+const int rookPhase = 2;
+const int queenPhase = 4;
+//const int totalPhase = minorPhase * 8 + rookPhase * 4 + queenPhase * 2;
+const int totalPhase = 1 * 8 + 2 * 4 + 4 * 2;
+
 const int PawnIsolated = -10;
-const int PawnPassed[8] = { 0, 5, 10, 20, 35, 60, 100, 200 };
+const int PawnPassedMG[8] = { 0, 5, 10, 20, 35, 50, 75, 150 };
+const int PawnPassedEG[8] = { 0, 5, 15, 30, 50, 75, 125, 250 };
 
 int evaluatePosition(const Board* position) {
-    int earlyEval = (bitCount(position->pieceBB[WHITE_PAWN])/*bitCount(wP)*/ - bitCount(position->pieceBB[BLACK_PAWN])/*bitCount(bP)*/) * pieceValue[WHITE_PAWN];
-    int lateEval = earlyEval;
+    
+    int phase = totalPhase;
+    int scoreMG, scoreEG;
+    int score;
+    
+    scoreMG = (bitCount(position->pieceBB[WHITE_PAWN]) - bitCount(position->pieceBB[BLACK_PAWN])) * pieceValue[WHITE_PAWN];
+    scoreMG = scoreMG + (bitCount(position->pieceBB[WHITE_ROOK]) - bitCount(position->pieceBB[BLACK_ROOK])) * pieceValue[WHITE_ROOK];
+    scoreMG = scoreMG + (bitCount(position->pieceBB[WHITE_KNIGHT]) - bitCount(position->pieceBB[BLACK_KNIGHT])) * pieceValue[WHITE_KNIGHT];
+    scoreMG = scoreMG + (bitCount(position->pieceBB[WHITE_BISHOP]) - bitCount(position->pieceBB[BLACK_BISHOP])) * pieceValue[WHITE_BISHOP];
+    scoreMG = scoreMG + (bitCount(position->pieceBB[WHITE_QUEEN]) - bitCount(position->pieceBB[BLACK_QUEEN])) * pieceValue[WHITE_QUEEN];
+    scoreEG = scoreMG;
 
     U64 whitePawnBitboard = (position->pieceBB[WHITE_PAWN]);
     U64 blackPawnBitboard = (position->pieceBB[BLACK_PAWN]);
-
-    int eval = 0;
 
     while (whitePawnBitboard != 0ULL)
     {
         int square = PopBit(&whitePawnBitboard);
 
+        scoreMG += PawnMG[square];
+        scoreEG += PawnEG[square];
+
         if ((IsolatedMask[square] & position->pieceBB[WHITE_PAWN]) == 0) {
-            eval += PawnIsolated;
+            scoreMG += PawnIsolated;
+            scoreEG += PawnIsolated;
+
         }
 
         if ((WhitePassedMask[square] & position->pieceBB[BLACK_PAWN]) == 0) {
-            eval += PawnPassed[RanksBrd[square]];
+            scoreMG += PawnPassedMG[RanksBrd[square]];
+            scoreEG += PawnPassedEG[RanksBrd[square]];
         }
     }
 
@@ -1665,42 +1704,123 @@ int evaluatePosition(const Board* position) {
     {
         int square = PopBit(&blackPawnBitboard);
 
+        scoreMG -= PawnMG[mirror[square]];
+        scoreEG -= PawnEG[mirror[square]];
+
         if ((IsolatedMask[square] & position->pieceBB[BLACK_PAWN]) == 0) {
-            eval -= PawnIsolated;
+            scoreMG -= PawnIsolated;
+            scoreEG -= PawnIsolated;
         }
 
         if ((BlackPassedMask[square] & position->pieceBB[WHITE_PAWN]) == 0) {
-            eval -= PawnPassed[7 - RanksBrd[square]];
+            scoreMG -= PawnPassedMG[7 - RanksBrd[square]];
+            scoreEG -= PawnPassedEG[7 - RanksBrd[square]];
         }
     }
 
-    earlyEval += evaluatePieceBoards(pawnTableEarly, 0, position->pieceBB[WHITE_PAWN], position->pieceBB[BLACK_PAWN]);
-    earlyEval += evaluatePieceBoards(knightTableEarly, pieceValue[WHITE_KNIGHT], position->pieceBB[WHITE_KNIGHT], position->pieceBB[BLACK_KNIGHT]);
-    earlyEval += evaluatePieceBoards(bishopTableEarly, pieceValue[WHITE_BISHOP], position->pieceBB[WHITE_BISHOP], position->pieceBB[BLACK_BISHOP]);
-    earlyEval += evaluatePieceBoards(rookTableEarly, pieceValue[WHITE_ROOK], position->pieceBB[WHITE_ROOK], position->pieceBB[BLACK_ROOK]);
-    earlyEval += evaluatePieceBoards(queenTableEarly, pieceValue[WHITE_QUEEN], position->pieceBB[WHITE_QUEEN], position->pieceBB[BLACK_QUEEN]);
-    earlyEval += evaluatePieceBoards(kingTableEarly, 0, position->pieceBB[WHITE_KING], position->pieceBB[BLACK_KING]);
+    U64 whiteKnightBitboard = (position->pieceBB[WHITE_KNIGHT]);
 
-    lateEval += evaluatePieceBoards(pawnTableLate, 0, position->pieceBB[WHITE_PAWN], position->pieceBB[BLACK_PAWN]);
-    lateEval += evaluatePieceBoards(knightTableLate, pieceValue[WHITE_KNIGHT], position->pieceBB[WHITE_KNIGHT], position->pieceBB[BLACK_KNIGHT]);
-    lateEval += evaluatePieceBoards(bishopTableLate, pieceValue[WHITE_BISHOP], position->pieceBB[WHITE_BISHOP], position->pieceBB[BLACK_BISHOP]);
-    lateEval += evaluatePieceBoards(rookTableLate, pieceValue[WHITE_ROOK], position->pieceBB[WHITE_ROOK], position->pieceBB[BLACK_ROOK]);
-    lateEval += evaluatePieceBoards(queenTableLate, pieceValue[WHITE_QUEEN], position->pieceBB[WHITE_QUEEN], position->pieceBB[BLACK_QUEEN]);
-    lateEval += evaluatePieceBoards(kingTableLate, 0, position->pieceBB[WHITE_KING], position->pieceBB[BLACK_KING]);
-
-    double gameProgress = (bitCount(position->occupiedBB)) / 32.0;
-    int evaluation = (int)((gameProgress * earlyEval) + ((1 - gameProgress) * lateEval));
-
-    evaluation = evaluation + eval;
-
-    if (position->side == WHITE)
+    while (whiteKnightBitboard != 0ULL)
     {
-        return evaluation;
+        int square = PopBit(&whiteKnightBitboard);
+
+        scoreMG += KnightMG[square];
+        scoreEG += KnightEG[square];
+        phase -= minorPhase;
     }
-    else
+
+    U64 blackKnightBitboard = (position->pieceBB[BLACK_KNIGHT]);
+
+    while (blackKnightBitboard != 0ULL)
     {
-        return -evaluation;
+        int square = PopBit(&blackKnightBitboard);
+
+        scoreMG -= KnightMG[mirror[square]];
+        scoreEG -= KnightEG[mirror[square]];
+        phase -= minorPhase;
     }
+
+    U64 whiteBishopBitboard = (position->pieceBB[WHITE_BISHOP]);
+
+    while (whiteBishopBitboard != 0ULL)
+    {
+        int square = PopBit(&whiteBishopBitboard);
+
+        scoreMG += BishopMG[square];
+        scoreEG += BishopEG[square];
+        phase -= minorPhase;
+    }
+
+    U64 blackBishopBitboard = (position->pieceBB[BLACK_BISHOP]);
+
+    while (blackBishopBitboard != 0ULL)
+    {
+        int square = PopBit(&blackBishopBitboard);
+
+        scoreMG -= BishopMG[mirror[square]];
+        scoreEG -= BishopEG[mirror[square]];
+        phase -= minorPhase;
+    }
+
+    U64 whiteRookBitboard = (position->pieceBB[WHITE_ROOK]);
+
+    while (whiteRookBitboard != 0ULL)
+    {
+        int square = PopBit(&whiteRookBitboard);
+
+        scoreMG += RookMG[square];
+        scoreEG += RookEG[square];
+        phase -= rookPhase;
+    }
+
+    U64 blackRookBitboard = (position->pieceBB[BLACK_ROOK]);
+
+    while (blackRookBitboard != 0ULL)
+    {
+        int square = PopBit(&blackRookBitboard);
+
+        scoreMG -= BishopMG[mirror[square]];
+        scoreEG -= BishopEG[mirror[square]];
+        phase -= rookPhase;
+    }
+
+    U64 whiteQueenBitboard = (position->pieceBB[WHITE_QUEEN]);
+
+    while (whiteQueenBitboard != 0ULL)
+    {
+        int square = PopBit(&whiteQueenBitboard);
+
+        scoreMG += QueenMG[square];
+        scoreEG += QueenEG[square];
+        phase -= queenPhase;
+    }
+
+    U64 blackQueenBitboard = (position->pieceBB[BLACK_QUEEN]);
+
+    while (blackQueenBitboard != 0ULL)
+    {
+        int square = PopBit(&blackQueenBitboard);
+
+        scoreMG -= QueenMG[mirror[square]];
+        scoreEG -= QueenEG[mirror[square]];
+        phase -= queenPhase;
+    }
+
+    U64 whiteKingBitboard = (position->pieceBB[WHITE_KING]);
+    int square = PopBit(&whiteKingBitboard);
+    scoreMG += KingMG[square];
+    scoreEG += KingEG[square];
+
+    U64 blackKingBitboard = (position->pieceBB[BLACK_KING]);
+    int sq = PopBit(&blackKingBitboard);
+    scoreMG -= KingMG[mirror[sq]];
+    scoreEG -= KingEG[mirror[sq]];
+
+    // calculating game phase and interpolating score values between phases
+    phase = (phase * 256 + (totalPhase / 2)) / totalPhase;
+    score = ((scoreMG * (256 - phase)) + (scoreEG * phase)) / 256;
+
+    return position->side == WHITE ? score : -score;
 }
 
 //board functions

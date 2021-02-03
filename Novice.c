@@ -2,6 +2,8 @@
 //Various adjustments/functions from the Video Instruction Chess Engine.
 //It also has various enhancements to alphaBeta from CeeChess.
 //Added code for the evaluation of passed and isolated pawns
+//Added code for evaluation of rooks and queens on open and semiopen files
+//Added code giving a bonus for the Bishop pair
 
 #include "stdio.h"
 #include "stdlib.h"
@@ -1661,9 +1663,20 @@ const int queenPhase = 4;
 //const int totalPhase = minorPhase * 8 + rookPhase * 4 + queenPhase * 2;
 const int totalPhase = 1 * 8 + 2 * 4 + 4 * 2;
 
-const int PawnIsolated = -10;
+// Midgame constants
+const int BishopPairMG = 20;
 const int PawnPassedMG[8] = { 0, 5, 10, 20, 35, 50, 75, 150 };
+
+// Endgame constants
+const int BishopPairEG = 35;
 const int PawnPassedEG[8] = { 0, 5, 15, 30, 50, 75, 125, 250 };
+
+// Full game constants
+const int PawnIsolated = -10;
+const int QueenOpenFile = 5;
+const int QueenSemiOpenFile = 3;
+const int RookOpenFile = 10;
+const int RookSemiOpenFile = 5;
 
 int evaluatePosition(const Board* position) {
     
@@ -1762,14 +1775,25 @@ int evaluatePosition(const Board* position) {
         phase -= minorPhase;
     }
 
-    U64 whiteRookBitboard = (position->pieceBB[WHITE_ROOK]);
+    whitePawnBitboard = (position->pieceBB[WHITE_PAWN]);
+    blackPawnBitboard = (position->pieceBB[BLACK_PAWN]);
 
+    U64 whiteRookBitboard = (position->pieceBB[WHITE_ROOK]);
+    
     while (whiteRookBitboard != 0ULL)
     {
         int square = PopBit(&whiteRookBitboard);
 
         scoreMG += RookMG[square];
         scoreEG += RookEG[square];
+        if (!((whitePawnBitboard | blackPawnBitboard) & FileBBMask[FilesBrd[square]])) {
+            scoreMG += RookOpenFile;
+            scoreEG += RookOpenFile;
+        }
+        else if (!(whitePawnBitboard & FileBBMask[FilesBrd[square]])) {
+            scoreMG += RookSemiOpenFile;
+            scoreEG += RookSemiOpenFile;
+        }
         phase -= rookPhase;
     }
 
@@ -1781,6 +1805,14 @@ int evaluatePosition(const Board* position) {
 
         scoreMG -= BishopMG[mirror[square]];
         scoreEG -= BishopEG[mirror[square]];
+        if (!((whitePawnBitboard | blackPawnBitboard) & FileBBMask[FilesBrd[square]])) {
+            scoreMG -= RookOpenFile;
+            scoreEG -= RookOpenFile;
+        }
+        else if (!(blackPawnBitboard & FileBBMask[FilesBrd[square]])) {
+            scoreMG -= RookSemiOpenFile;
+            scoreEG -= RookSemiOpenFile;
+        }
         phase -= rookPhase;
     }
 
@@ -1792,6 +1824,14 @@ int evaluatePosition(const Board* position) {
 
         scoreMG += QueenMG[square];
         scoreEG += QueenEG[square];
+        if (!((whitePawnBitboard | blackPawnBitboard) & FileBBMask[FilesBrd[square]])) {
+            scoreMG += QueenOpenFile;
+            scoreEG += QueenOpenFile;
+        }
+        else if (!(whitePawnBitboard & FileBBMask[FilesBrd[square]])) {
+            scoreMG += QueenSemiOpenFile;
+            scoreEG += QueenSemiOpenFile;
+        }
         phase -= queenPhase;
     }
 
@@ -1803,6 +1843,14 @@ int evaluatePosition(const Board* position) {
 
         scoreMG -= QueenMG[mirror[square]];
         scoreEG -= QueenEG[mirror[square]];
+        if (!((whitePawnBitboard | blackPawnBitboard) & FileBBMask[FilesBrd[square]])) {
+            scoreMG -= QueenOpenFile;
+            scoreEG -= QueenOpenFile;
+        }
+        else if (!(blackPawnBitboard & FileBBMask[FilesBrd[square]])) {
+            scoreMG -= QueenSemiOpenFile;
+            scoreEG -= QueenSemiOpenFile;
+        }
         phase -= queenPhase;
     }
 
@@ -1815,6 +1863,15 @@ int evaluatePosition(const Board* position) {
     int sq = PopBit(&blackKingBitboard);
     scoreMG -= KingMG[mirror[sq]];
     scoreEG -= KingEG[mirror[sq]];
+
+    if (bitCount(position->pieceBB[WHITE_BISHOP]) >= 2) {
+        scoreMG += BishopPairMG;
+        scoreEG += BishopPairEG;
+    }
+    if (bitCount(position->pieceBB[BLACK_BISHOP]) >= 2) {
+        scoreMG -= BishopPairMG;
+        scoreEG -= BishopPairEG;
+    }
 
     // calculating game phase and interpolating score values between phases
     phase = (phase * 256 + (totalPhase / 2)) / totalPhase;

@@ -1,6 +1,6 @@
 //Novice is a port of the Butter chess engine to C.
 //Various adjustments/functions from the Video Instruction Chess Engine.
-//It also has various enhancements to alphaBeta from CeeChess.
+//Search is the same as CeeChess 1.3.
 //Added code for the evaluation of passed and isolated pawns
 //Added code for evaluation of rooks and queens on open and semiopen files
 //Added code giving a bonus for the Bishop pair
@@ -2386,20 +2386,20 @@ static const int R = 2;
 static const int minDepth = 3;
 
 // Razoring Values
-static const int RazorDepth = 2;
-static const int RazorMargin[3] = { 0, 200, 400 };
+static const int RazorDepth = 3;
+static const int RazorMargin[4] = { 0, 200, 400, 600 };
 
 // Futility Values
 static const int FutilityDepth = 6;
 static const int FutilityMargin[7] = { 0, 200, 325, 450, 575, 700, 825 };
 
 // Reverse Futility Values
-static const int RevFutilityDepth = 5;
-static const int RevFutilityMargin[6] = { 0, 200, 400, 600, 800, 1000 };
+static const int RevFutilityDepth = 4;
+static const int RevFutilityMargin[5] = { 0, 250, 500, 750, 1000 };
 
-// LMR Values
+/// LMR Values
 static const int LateMoveDepth = 3;
-static const int FullSearchMoves = 2;
+static const int FullSearchMoves = 4;
 
 static int alphaBeta(Board* position, SearchInfo* info, int alpha, int beta, int depth, int doNull, int DoLMR) {
     // pre-search checks
@@ -2498,16 +2498,16 @@ static int alphaBeta(Board* position, SearchInfo* info, int alpha, int beta, int
     int FoundPv = 0;
 
     // Futility Pruning flag (if node is futile (unlikely to raise alpha), this flag is set)
-    int FutileNode = (depth <= FutilityDepth && positionEval + FutilityMargin[depth] <= alpha && abs(score) < ISMATE) ? 1 : 0;
+    //int FutileNode = (depth <= FutilityDepth && positionEval + FutilityMargin[depth] <= alpha && abs(score) < ISMATE) ? 1 : 0;
 
     for (int MoveNum = 0; MoveNum < list->count; ++MoveNum) {
 
         pickNextMove(MoveNum, list);
 
         // Futility Pruning (if node is considered futile, and at least 1 legal move has been searched, don't search any more quiet moves in the position)
-        if (legal && FutileNode && !(list->moves[MoveNum].move & 0xF000) && !(list->moves[MoveNum].move & 0xF00000) && !underCheck(position, position->side)) {
-            continue;
-        }
+        //if (legal && FutileNode && !(list->moves[MoveNum].move & 0xF000) && !(list->moves[MoveNum].move & 0xF00000) && !underCheck(position, position->side)) {
+            //continue;
+        //}
 
         // if move is legal, play it
         if (!makeMove(position, list->moves[MoveNum].move)) {
@@ -2520,22 +2520,12 @@ static int alphaBeta(Board* position, SearchInfo* info, int alpha, int beta, int
         if (FoundPv == TRUE) {
 
             // Late Move Reductions at Root (reduces moves if past full move search limit (not reducing captures, checks, or promotions))
-            if (depth >= LateMoveDepth && !(list->moves[MoveNum].move & 0xF000) && !(list->moves[MoveNum].move & 0xF00000) && !underCheck(position, position->side) && DoLMR && legal > FullSearchMoves) {
+            if (depth >= LateMoveDepth && !(list->moves[MoveNum].move & 0xF000) && !(list->moves[MoveNum].move & 0xF00000) && !underCheck(position, position->side) && DoLMR && legal > FullSearchMoves && !(list->moves[MoveNum].score == 800000 || list->moves[MoveNum].score == 900000)) {
 
                 // get initial reduction depth
                 int reduce = LMRTable[MIN(depth, 63)][MIN(legal, 63)];
-
-                // reduce less for killer moves
-                if ((list->moves[MoveNum].score == 800000 || list->moves[MoveNum].score == 900000)) reduce--;
-
-                // do not fall directly into quiescence search
-                reduce = MIN(depth - 1, MAX(reduce, 1));
-
-                // print reduction depth at move number
-                // printf("reduction: %d depth: %d moveNum: %d\n", (reduce - 1), depth, Legal);
-
                 // search with the reduced depth
-                score = -alphaBeta(position, info, -alpha - 1, -alpha, depth - reduce, 1, 0);
+                score = -alphaBeta(position, info, -alpha - 1, -alpha, depth - 1 - reduce, 1, 0);
 
             }
             else {
@@ -2630,7 +2620,7 @@ void searchPosition(Board* position, SearchInfo* info)
         pvMoves = getPV(position, currentDepth);
         bestMove = position->pvArray[0];
 
-        if (absoluteValue(bestScore) > ISMATE) {
+        if (abs(bestScore) > ISMATE) {
             bestScore = (bestScore > 0 ? INFINITE - bestScore + 1 : -INFINITE - bestScore) / 2;
             printf("info score mate %d depth %d nodes %ld time %d ",
                 bestScore, currentDepth, info->nodes, GetTickCount() - info->startTime);

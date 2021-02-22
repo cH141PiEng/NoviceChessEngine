@@ -1,10 +1,3 @@
-//Novice is a port of the Butter chess engine to C.
-//Various adjustments/functions from the Video Instruction Chess Engine.
-//Search is the same as CeeChess 1.3.
-//Added code for the evaluation of passed and isolated pawns
-//Added code for evaluation of rooks and queens on open and semiopen files
-//Added code giving a bonus for the Bishop pair
-
 #include "stdio.h"
 #include "stdlib.h"
 #include "string.h"
@@ -28,6 +21,7 @@ typedef char string[200];
 #define ISMATE (INFINITE - MAX_DEPTH)
 
 const U64 FILE_A_MASK = 0x0101010101010101;
+const U64 FILE_H_MASK = 0x8080808080808080;
 const U64 NOT_FILE_A_MASK = 0xFEFEFEFEFEFEFEFE;
 const U64 NOT_FILE_H_MASK = 0x7F7F7F7F7F7F7F7F;
 const U64 RANK_1_MASK = 0x00000000000000FF;
@@ -41,6 +35,8 @@ enum {
     WHITE_PAWN, WHITE_KNIGHT, WHITE_BISHOP, WHITE_ROOK, WHITE_QUEEN, WHITE_KING,
     BLACK_PAWN, BLACK_KNIGHT, BLACK_BISHOP, BLACK_ROOK, BLACK_QUEEN, BLACK_KING,
 };
+
+enum { PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING };
 
 enum { FILE_A, FILE_B, FILE_C, FILE_D, FILE_E, FILE_F, FILE_G, FILE_H };
 enum { RANK_1, RANK_2, RANK_3, RANK_4, RANK_5, RANK_6, RANK_7, RANK_8 };
@@ -1677,22 +1673,69 @@ const int QueenOpenFile = 5;
 const int QueenSemiOpenFile = 3;
 const int RookOpenFile = 10;
 const int RookSemiOpenFile = 5;
+const int kingAttackBonus = 12;
+const int kingAttackerBonus[5] = { 0, 40, 35, 30, 10 };
+
+const int knightMobility[9] =
+{
+    -50, -35, -10, 0, 5, 10, 15, 20, 25
+};
+
+const int bishopMobility[14] =
+{
+    -50, -30, -5, 5, 10, 15, 20, 24, 28, 32, 34, 36, 38, 40
+};
+
+const int rookMobility[15] =
+{
+    -40, -24, -12, -8, -4, 2, 7, 12, 16, 20, 23, 26, 29, 31, 34
+};
+
+const int queenMobility[28] =
+{
+    -30, -20, -10, -5, 0, 5, 9, 12, 15, 18, 21, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 44, 45, 45, 46, 46, 46
+};
+
+U64 GenKingRing(int sq) {
+    U64 kingSquare = (1ULL << sq);
+    U64 diagonals = ((kingSquare >> 7) & ~FILE_A_MASK) | ((kingSquare >> 9) & ~FILE_H_MASK) | ((kingSquare << 7) & ~FILE_H_MASK) | ((kingSquare << 9) & ~FILE_A_MASK);
+    U64 cardinals = ((kingSquare >> 1) & ~FILE_H_MASK) | ((kingSquare << 1) & ~FILE_A_MASK) | (kingSquare >> 8) | (kingSquare << 8);
+    return kingSquare | diagonals | cardinals;
+}
 
 int evaluatePosition(const Board* position) {
+
+    U64 whitePawnBitboard = (position->pieceBB[WHITE_PAWN]);
+    U64 blackPawnBitboard = (position->pieceBB[BLACK_PAWN]);
+
+    // Mobility info
+    U64 whiteSafeSquares = ~(((blackPawnBitboard >> 7) & ~FILE_A_MASK) | ((blackPawnBitboard >> 9) & ~FILE_H_MASK)) & (position->emptyBB);
+    U64 blackSafeSquares = ~(((whitePawnBitboard << 7) & ~FILE_H_MASK) | ((whitePawnBitboard << 9) & ~FILE_A_MASK)) & (position->emptyBB);
     
     int phase = totalPhase;
     int scoreMG, scoreEG;
     int score;
     
     scoreMG = (bitCount(position->pieceBB[WHITE_PAWN]) - bitCount(position->pieceBB[BLACK_PAWN])) * pieceValue[WHITE_PAWN];
-    scoreMG = scoreMG + (bitCount(position->pieceBB[WHITE_ROOK]) - bitCount(position->pieceBB[BLACK_ROOK])) * pieceValue[WHITE_ROOK];
-    scoreMG = scoreMG + (bitCount(position->pieceBB[WHITE_KNIGHT]) - bitCount(position->pieceBB[BLACK_KNIGHT])) * pieceValue[WHITE_KNIGHT];
-    scoreMG = scoreMG + (bitCount(position->pieceBB[WHITE_BISHOP]) - bitCount(position->pieceBB[BLACK_BISHOP])) * pieceValue[WHITE_BISHOP];
-    scoreMG = scoreMG + (bitCount(position->pieceBB[WHITE_QUEEN]) - bitCount(position->pieceBB[BLACK_QUEEN])) * pieceValue[WHITE_QUEEN];
+    scoreMG += (bitCount(position->pieceBB[WHITE_ROOK]) - bitCount(position->pieceBB[BLACK_ROOK])) * pieceValue[WHITE_ROOK];
+    scoreMG += (bitCount(position->pieceBB[WHITE_KNIGHT]) - bitCount(position->pieceBB[BLACK_KNIGHT])) * pieceValue[WHITE_KNIGHT];
+    scoreMG += (bitCount(position->pieceBB[WHITE_BISHOP]) - bitCount(position->pieceBB[BLACK_BISHOP])) * pieceValue[WHITE_BISHOP];
+    scoreMG += (bitCount(position->pieceBB[WHITE_QUEEN]) - bitCount(position->pieceBB[BLACK_QUEEN])) * pieceValue[WHITE_QUEEN];
     scoreEG = scoreMG;
 
-    U64 whitePawnBitboard = (position->pieceBB[WHITE_PAWN]);
-    U64 blackPawnBitboard = (position->pieceBB[BLACK_PAWN]);
+    U64 whiteKingBitboard = (position->pieceBB[WHITE_KING]);
+    int whiteKingSquare = PopBit(&whiteKingBitboard);
+    scoreMG += KingMG[whiteKingSquare];
+    scoreEG += KingEG[whiteKingSquare];
+
+    //U64 whiteKingRing = GenKingRing(whiteKingSquare);
+
+    U64 blackKingBitboard = (position->pieceBB[BLACK_KING]);
+    int blackKingSquare = PopBit(&blackKingBitboard);
+    scoreMG -= KingMG[mirror[blackKingSquare]];
+    scoreEG -= KingEG[mirror[blackKingSquare]];
+
+    //U64 blackKingRing = GenKingRing(blackKingSquare);
 
     while (whitePawnBitboard != 0ULL)
     {
@@ -1737,6 +1780,18 @@ int evaluatePosition(const Board* position) {
     {
         int square = PopBit(&whiteKnightBitboard);
 
+        U64 attacks = knightAttacks[square];
+        // Mobility
+        scoreMG += knightMobility[bitCount(attacks & whiteSafeSquares)];
+        scoreEG += knightMobility[bitCount(attacks & whiteSafeSquares)];
+        // King attacks
+        /*int kingAttacks = bitCount(attacks & blackKingRing);
+        scoreMG += kingAttacks * kingAttackBonus;
+        scoreMG += (kingAttacks > 0)* kingAttackerBonus[KNIGHT];
+
+        scoreEG += kingAttacks * kingAttackBonus;
+        scoreEG += (kingAttacks > 0)* kingAttackerBonus[KNIGHT];*/
+
         scoreMG += KnightMG[square];
         scoreEG += KnightEG[square];
         phase -= minorPhase;
@@ -1747,6 +1802,18 @@ int evaluatePosition(const Board* position) {
     while (blackKnightBitboard != 0ULL)
     {
         int square = PopBit(&blackKnightBitboard);
+
+        U64 attacks = knightAttacks[square];
+        // Mobility
+        scoreMG -= knightMobility[bitCount(attacks & blackSafeSquares)];
+        scoreEG -= knightMobility[bitCount(attacks & blackSafeSquares)];
+        // King attacks
+        /*int kingAttacks = bitCount(attacks & whiteKingRing);
+        scoreMG -= kingAttacks * kingAttackBonus;
+        scoreMG -= (kingAttacks > 0)* kingAttackerBonus[KNIGHT];
+
+        scoreEG -= kingAttacks * kingAttackBonus;
+        scoreEG -= (kingAttacks > 0)* kingAttackerBonus[KNIGHT];*/
 
         scoreMG -= KnightMG[mirror[square]];
         scoreEG -= KnightEG[mirror[square]];
@@ -1759,6 +1826,18 @@ int evaluatePosition(const Board* position) {
     {
         int square = PopBit(&whiteBishopBitboard);
 
+        U64 attacks = bishopAttacks(position, square);
+        // Mobility
+        scoreMG += bishopMobility[bitCount(attacks & whiteSafeSquares)];
+        scoreEG += bishopMobility[bitCount(attacks & whiteSafeSquares)];
+        // King attacks
+        /*int kingAttacks = bitCount(attacks & blackKingRing);
+        scoreMG += kingAttacks * kingAttackBonus;
+        scoreMG += (kingAttacks > 0)* kingAttackerBonus[BISHOP];
+
+        scoreEG += kingAttacks * kingAttackBonus;
+        scoreEG += (kingAttacks > 0)* kingAttackerBonus[BISHOP];*/
+
         scoreMG += BishopMG[square];
         scoreEG += BishopEG[square];
         phase -= minorPhase;
@@ -1769,6 +1848,18 @@ int evaluatePosition(const Board* position) {
     while (blackBishopBitboard != 0ULL)
     {
         int square = PopBit(&blackBishopBitboard);
+
+        U64 attacks = bishopAttacks(position, square);
+        // Mobility
+        scoreMG -= bishopMobility[bitCount(attacks & blackSafeSquares)];
+        scoreEG -= bishopMobility[bitCount(attacks & blackSafeSquares)];
+        // King attacks
+        /*int kingAttacks = bitCount(attacks & whiteKingRing);
+        scoreMG -= kingAttacks * kingAttackBonus;
+        scoreMG -= (kingAttacks > 0)* kingAttackerBonus[BISHOP];
+
+        scoreEG -= kingAttacks * kingAttackBonus;
+        scoreEG -= (kingAttacks > 0)* kingAttackerBonus[BISHOP];*/
 
         scoreMG -= BishopMG[mirror[square]];
         scoreEG -= BishopEG[mirror[square]];
@@ -1783,6 +1874,18 @@ int evaluatePosition(const Board* position) {
     while (whiteRookBitboard != 0ULL)
     {
         int square = PopBit(&whiteRookBitboard);
+
+        U64 attacks = rookAttacks(position, square);
+        // Mobility
+        scoreMG += rookMobility[bitCount(attacks & whiteSafeSquares)];
+        scoreEG += rookMobility[bitCount(attacks & whiteSafeSquares)];
+        // King attacks
+        /*int kingAttacks = bitCount(attacks & blackKingRing);
+        scoreMG += kingAttacks * kingAttackBonus;
+        scoreMG += (kingAttacks > 0)* kingAttackerBonus[ROOK];
+
+        scoreEG += kingAttacks * kingAttackBonus;
+        scoreEG += (kingAttacks > 0)* kingAttackerBonus[ROOK];*/
 
         scoreMG += RookMG[square];
         scoreEG += RookEG[square];
@@ -1802,6 +1905,18 @@ int evaluatePosition(const Board* position) {
     while (blackRookBitboard != 0ULL)
     {
         int square = PopBit(&blackRookBitboard);
+
+        U64 attacks = rookAttacks(position, square);
+        // Mobility
+        scoreMG -= rookMobility[bitCount(attacks & blackSafeSquares)];
+        scoreEG -= rookMobility[bitCount(attacks & blackSafeSquares)];
+        // King attacks
+        /*int kingAttacks = bitCount(attacks & whiteKingRing);
+        scoreMG -= kingAttacks * kingAttackBonus;
+        scoreMG -= (kingAttacks > 0)* kingAttackerBonus[ROOK];
+
+        scoreEG -= kingAttacks * kingAttackBonus;
+        scoreEG -= (kingAttacks > 0)* kingAttackerBonus[ROOK];*/
 
         scoreMG -= BishopMG[mirror[square]];
         scoreEG -= BishopEG[mirror[square]];
@@ -1853,16 +1968,6 @@ int evaluatePosition(const Board* position) {
         }
         phase -= queenPhase;
     }
-
-    U64 whiteKingBitboard = (position->pieceBB[WHITE_KING]);
-    int square = PopBit(&whiteKingBitboard);
-    scoreMG += KingMG[square];
-    scoreEG += KingEG[square];
-
-    U64 blackKingBitboard = (position->pieceBB[BLACK_KING]);
-    int sq = PopBit(&blackKingBitboard);
-    scoreMG -= KingMG[mirror[sq]];
-    scoreEG -= KingEG[mirror[sq]];
 
     if (bitCount(position->pieceBB[WHITE_BISHOP]) >= 2) {
         scoreMG += BishopPairMG;
@@ -2805,7 +2910,38 @@ int main() {
         Board position[1];
         MoveList list[1];
         initBoard(position, STARTING_FEN);
-        PerftTest(6, position);//passed 1/21/2021
+        //file h
+        //U64 h = FILE_H_MASK;
+        //rank 1
+        //U64 r1 = RANK_1_MASK;
+        //printBitBoard(h | r1);
+        // - - - - - - - X
+        // - - - - - - - X
+        // - - - - - - - X
+        // - - - - - - - X
+        // - - - - - - - X
+        // - - - - - - - X
+        // - - - - - - - X
+        // X X X X X X X X
+        //printBitBoard(position -> occupiedBB);
+        //printBitBoard(position->emptyBB);
+        //knight attacks from b1
+        U64 nattacks = knightAttacks[B1];
+        //printBitBoard(nattacks);
+
+        U64 whitePawnBitboard = (position->pieceBB[WHITE_PAWN]);
+        U64 blackPawnBitboard = (position->pieceBB[BLACK_PAWN]);
+
+        // Mobility info
+        U64 whiteSafeSquares = ~(((blackPawnBitboard >> 7) & ~FILE_A_MASK) | ((blackPawnBitboard >> 9) & ~FILE_H_MASK)& (position->emptyBB));
+        //printBitBoard(whiteSafeSquares);
+        printBitBoard(nattacks & whiteSafeSquares);
+        //This gives 3, 0, 8:
+        printf("%d\n", bitCount(nattacks & whiteSafeSquares));
+        printf("%d\n", knightMobility[bitCount(nattacks & whiteSafeSquares)]);
+        printf("%d", bitCount(position->pieceBB[WHITE_PAWN]));
+        //PerftTest(6, position);//passed 1/21/2021
+        //printBoard(position);
         while (1);
     }
     else

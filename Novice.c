@@ -103,6 +103,8 @@ typedef struct {
     U64 posKey;
     Undo history[MAX_GAME_MOVES];
 
+    //int hasCastled[2];
+
     HashTable HashTable[1];
     int pvArray[MAX_DEPTH];
 
@@ -324,6 +326,8 @@ const U64 FLAG_PS = 0x4000000;
 #define clearBit(bb,sq) ((bb) &= clearMask[(sq)])
 #define bitCount(bb) ((int) (__popcnt64(bb)))
 
+#define Rank(sq) ((sq) >> 3)
+
 /* GLOBALS */
 
 U64 setMask[65];
@@ -346,6 +350,14 @@ U64 pieceKeys[14][64];
 U64 sideKey;
 U64 castleKeys[16];
 U64 enPassantKeys[64];
+
+//int hasCastled[2];
+
+/*void initCastle()
+{
+    hasCastled[0] = 0;
+    hasCastled[1] = 0;
+}*/
 
 //initialize
 
@@ -783,6 +795,8 @@ void generateKingMap() {
 
 int LMRTable[64][64];
 
+
+
 void InitSearch() {
     // creating the LMR table entries (idea from Ethereal)
     for (int moveDepth = 1; moveDepth < 64; moveDepth++)
@@ -791,6 +805,8 @@ void InitSearch() {
 }
 
 void initAll() {
+    //initCastle();
+
     initBitMasks();
     initFileRankArrays();
 
@@ -1265,11 +1281,13 @@ static void generateWhiteKingMoves(const Board* position, MoveList* list) {
     if ((position->castlePermissions & WHITE_KING_CASTLE) && ((position->emptyBB & 0x0000000000000060) == 0x0000000000000060)) {
         if (!attackedByBlack(position, E1) && !attackedByBlack(position, F1)) {
             addQuietMove(position, list, E1, G1, WHITE_KING, 0, FLAG_CA);
+            //hasCastled[0] = 1;
         }
     }
     if ((position->castlePermissions & WHITE_QUEEN_CASTLE) && ((position->emptyBB & 0x000000000000000E) == 0x000000000000000E)) {
         if (!attackedByBlack(position, E1) && !attackedByBlack(position, D1)) {
             addQuietMove(position, list, E1, C1, WHITE_KING, 0, FLAG_CA);
+            //hasCastled[0] = 1;
         }
     }
 }
@@ -1299,11 +1317,13 @@ static void generateBlackKingMoves(const Board* position, MoveList* list) {
     if ((position->castlePermissions & BLACK_KING_CASTLE) && ((position->emptyBB & 0x6000000000000000) == 0x6000000000000000)) {
         if (!attackedByWhite(position, E8) && !attackedByWhite(position, F8)) {
             addQuietMove(position, list, E8, G8, BLACK_KING, 0, FLAG_CA);
+            //hasCastled[1] = 1;
         }
     }
     if ((position->castlePermissions & BLACK_QUEEN_CASTLE) && ((position->emptyBB & 0x0E00000000000000) == 0x0E00000000000000)) {
         if (!attackedByWhite(position, E8) && !attackedByWhite(position, D8)) {
             addQuietMove(position, list, E8, C8, BLACK_KING, 0, FLAG_CA);
+            //hasCastled[1] = 1;
         }
     }
 }
@@ -1822,6 +1842,9 @@ int PopBit(U64* bb) {
     return BitTable[(fold * 0x783a9b23) >> 26];
 }
 
+#define KING_HAS_CASTLED 25
+#define KING_CAN_CASTLE 10
+
 const int minorPhase = 1;
 const int rookPhase = 2;
 const int queenPhase = 4;
@@ -1829,44 +1852,58 @@ const int queenPhase = 4;
 const int totalPhase = 1 * 8 + 2 * 4 + 4 * 2;
 
 // Midgame constants
-const int BishopPairMG = 20;
+const int BishopPairMG = 46;
 const int PawnPassedMG[8] = { 0, 5, 10, 20, 35, 50, 75, 150 };
 
 // Endgame constants
-const int BishopPairEG = 35;
+const int BishopPairEG = 64;
 const int PawnPassedEG[8] = { 0, 5, 15, 30, 50, 75, 125, 250 };
-
-// Full game constants
-const int PawnIsolated = -10;
-const int QueenOpenFile = 5;
-const int QueenSemiOpenFile = 3;
-const int RookOpenFile = 10;
-const int RookSemiOpenFile = 5;
-const int kingAttackBonus = 12;
-const int kingAttackerBonus[5] = { 0, 40, 35, 30, 10 };
 
 #define MG 0
 #define EG 1
 #define PhaseNb 2
 
-int KnightMobility[PhaseNb][9] = {
+// Full game constants
+//const int PawnIsolated = -10;
+const int PawnIsolated[PhaseNb] = { 10, 20 };
+const int QueenOpenFile = 5;
+const int QueenSemiOpenFile = 3;
+const int RookOpenFile[2] = {35, 20};
+const int RookSemiOpenFile[2] = {12, 12};
+const int kingAttackBonus = 12;
+const int kingAttackerBonus[5] = { 0, 40, 35, 30, 10 };
+
+const int RookOnSeventh[PhaseNb] = { 10, 15 };
+
+const int BishopHasWings[PhaseNb] = { 13, 36 };
+
+const int Tempo[2][PhaseNb] = { {5, 7}, {-5, -7} };
+
+const int KnightMobility[PhaseNb][9] = {
     {-30, -25, -10,   0,  10,  18,  26,  34,  42},
     {-30, -25,   0,   9,  15,  21,  28,  35,  36}
 };
 
-int BishopMobility[PhaseNb][14] = {
+const int BishopMobility[PhaseNb][14] = {
     {-30, -20, -15,   0, 15,  21,  26,  31,  34,  36,  37,  38,  38,  38},
     {-30, -20, -15,   0, 15,  21,  26,  31,  34,  36,  37,  38,  38,  38},
 };
 
-int RookMobility[PhaseNb][15] = {
+const int RookMobility[PhaseNb][15] = {
     {-30, -25, -10,  -5,  -3,  -1,   6,  11,  15,  19,  23,  25,  26,  27, 27},
     {-35, -20, -10,   0,  10,  19,  27,  33,  39,  41,  43,  45,  47,  48, 48}
 };
 
-const int queenMobility[28] =
-{
-    -30, -20, -10, -5, 0, 5, 9, 12, 15, 18, 21, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 44, 45, 45, 46, 46, 46
+const int QueenMobility[PhaseNb][28] = {
+    {-50, -40, -20,   0,   2,   4,   6,
+       8,  11,  15,  19,  20,  21,  22,
+      24,  24,  24,  24,  24,  24,  24,
+      24,  24,  24,  24,  24,  24,  24},
+
+    {-50, -40, -20, -10,   0,   4,   8,
+      12,  15,  18,  21,  24,  27,  30,
+      35,  43,  43,  43,  43,  43,  43,
+      43,  43,  43,  43,  43,  43,  43}
 };
 
 int SafetyTable[100] = { // Taken from CPW / Stockfish
@@ -1953,14 +1990,23 @@ int BishopOutpost[2][64] = {
 #define FILEG 0x4040404040404040
 #define FILEH 0x8080808080808080
 
+#define LEFT_WING  (FILEA | FILEB | FILEC)
+#define RIGHT_WING (FILEF | FILEG | FILEH)
+
+#define WHITE_SQUARES 0x55AA55AA55AA55AA
+#define BLACK_SQUARES 0xAA55AA55AA55AA55
+
 int evaluatePosition(const Board* position) {
 
     U64 whitePawnBitboard = (position->pieceBB[WHITE_PAWN]);
     U64 blackPawnBitboard = (position->pieceBB[BLACK_PAWN]);
 
+    //U64 queens = ((position->pieceBB[WHITE_QUEEN]) | (position->pieceBB[BLACK_QUEEN]));
+    //U64 rooks = ((position->pieceBB[WHITE_ROOK]) | (position->pieceBB[BLACK_ROOK]));
+
     // Mobility info
-    U64 whiteSafeSquares = ~(((blackPawnBitboard >> 7) & ~FILE_A_MASK) | ((blackPawnBitboard >> 9) & ~FILE_H_MASK))& (position->emptyBB);
-    U64 blackSafeSquares = ~(((whitePawnBitboard << 7) & ~FILE_H_MASK) | ((whitePawnBitboard << 9) & ~FILE_A_MASK)) & (position->emptyBB);
+    //U64 whiteSafeSquares = ~(((blackPawnBitboard >> 7) & ~FILE_A_MASK) | ((blackPawnBitboard >> 9) & ~FILE_H_MASK))& (position->emptyBB);
+    //U64 blackSafeSquares = ~(((whitePawnBitboard << 7) & ~FILE_H_MASK) | ((whitePawnBitboard << 9) & ~FILE_A_MASK)) & (position->emptyBB);
 
     int phase = totalPhase;
     int scoreMG, scoreEG;
@@ -2018,8 +2064,8 @@ int evaluatePosition(const Board* position) {
     // occupied by our king, or occupied with our blocked pawns
     // in our mobilityArea. This definition of mobilityArea is
     // derived directly from Stockfish's evaluation features. 
-    //whiteMobilityArea = ~(pawnAttacks[BLACK] | (position->pieceBB[WHITE_KING]) | blockedPawns[WHITE]);
-    //blackMobilityArea = ~(pawnAttacks[WHITE] | (position->pieceBB[WHITE_KING]) | blockedPawns[WHITE]);
+    U64 whiteMobilityArea = ~(pawnAttacks[BLACK] | (position->pieceBB[WHITE_KING]) | blockedPawns[WHITE]);
+    U64 blackMobilityArea = ~(pawnAttacks[WHITE] | (position->pieceBB[BLACK_KING]) | blockedPawns[BLACK]);
 
     int attackCounts[ColourNb] = { 0, 0 };
     int attackerCounts[ColourNb] = { 0, 0 };
@@ -2034,8 +2080,8 @@ int evaluatePosition(const Board* position) {
         scoreEG += PawnEG[square];
 
         if ((IsolatedMask[square] & position->pieceBB[WHITE_PAWN]) == 0) {
-            scoreMG += PawnIsolated;
-            scoreEG += PawnIsolated;
+            scoreMG -= PawnIsolated[MG];
+            scoreEG -= PawnIsolated[EG];
 
         }
 
@@ -2058,8 +2104,8 @@ int evaluatePosition(const Board* position) {
         scoreEG -= PawnEG[mirror[square]];
 
         if ((IsolatedMask[square] & position->pieceBB[BLACK_PAWN]) == 0) {
-            scoreMG -= PawnIsolated;
-            scoreEG -= PawnIsolated;
+            scoreMG += PawnIsolated[MG];
+            scoreEG += PawnIsolated[EG];
         }
 
         if ((BlackPassedMask[square] & position->pieceBB[WHITE_PAWN]) == 0) {
@@ -2083,7 +2129,8 @@ int evaluatePosition(const Board* position) {
         // Mobility
         // Knight gains a mobility bonus based off of the number
         // of attacked or defended squares within the mobility area
-        mobilityCount = bitCount(attacks & whiteSafeSquares);
+        //mobilityCount = bitCount(attacks & whiteSafeSquares);
+        mobilityCount = bitCount(attacks & whiteMobilityArea);
         scoreMG += KnightMobility[MG][mobilityCount];
         scoreEG += KnightMobility[EG][mobilityCount];
 
@@ -2127,7 +2174,8 @@ int evaluatePosition(const Board* position) {
 
         U64 attacks = knightAttacks[square];
         // Mobility
-        mobilityCount = bitCount(attacks & blackSafeSquares);
+        //mobilityCount = bitCount(attacks & blackSafeSquares);
+        mobilityCount = bitCount(attacks & blackMobilityArea);
         scoreMG -= KnightMobility[MG][mobilityCount];
         scoreEG -= KnightMobility[EG][mobilityCount];
 
@@ -2165,13 +2213,26 @@ int evaluatePosition(const Board* position) {
 
     U64 whiteBishopBitboard = (position->pieceBB[WHITE_BISHOP]);
 
+    // Apply a bonus for having pawn wings and a bishop
+    if ((whiteBishopBitboard != 0) && (whitePawns & LEFT_WING) && (whitePawns & RIGHT_WING)) {
+        scoreMG += BishopHasWings[MG];
+        scoreEG += BishopHasWings[EG];
+    }
+
+    // Apply a bonus for having a pair of bishops
+    if ((whiteBishopBitboard & WHITE_SQUARES) && (whiteBishopBitboard & BLACK_SQUARES)) {
+        scoreMG += BishopPairMG;
+        scoreEG += BishopPairEG;
+    }
+    
     while (whiteBishopBitboard != 0ULL)
     {
-        int square = PopBit(&whiteBishopBitboard);
+         int square = PopBit(&whiteBishopBitboard);
 
         U64 attacks = bishopAttacks(position, square);
         // Mobility
-        mobilityCount = bitCount(attacks & whiteSafeSquares);
+        //mobilityCount = bitCount(attacks & whiteSafeSquares);
+        mobilityCount = bitCount(attacks & whiteMobilityArea);
         scoreMG += BishopMobility[MG][mobilityCount];
         scoreEG += BishopMobility[EG][mobilityCount];
 
@@ -2212,13 +2273,26 @@ int evaluatePosition(const Board* position) {
 
     U64 blackBishopBitboard = (position->pieceBB[BLACK_BISHOP]);
 
+    // Apply a bonus for having pawn wings and a bishop
+    if ((blackBishopBitboard != 0) && (blackPawns & LEFT_WING) && (blackPawns & RIGHT_WING)) {
+        scoreMG -= BishopHasWings[MG];
+        scoreEG -= BishopHasWings[EG];
+    }
+
+    // Apply a bonus for having a pair of bishops
+    if ((blackBishopBitboard & WHITE_SQUARES) && (blackBishopBitboard & BLACK_SQUARES)) {
+        scoreMG -= BishopPairMG;
+        scoreEG -= BishopPairEG;
+    }
+
     while (blackBishopBitboard != 0ULL)
     {
         int square = PopBit(&blackBishopBitboard);
 
         U64 attacks = bishopAttacks(position, square);
         // Mobility
-        mobilityCount = bitCount(attacks & blackSafeSquares);
+        //mobilityCount = bitCount(attacks & blackSafeSquares);
+        mobilityCount = bitCount(attacks & blackMobilityArea);
         scoreMG -= BishopMobility[MG][mobilityCount];
         scoreEG -= BishopMobility[EG][mobilityCount];
 
@@ -2266,21 +2340,29 @@ int evaluatePosition(const Board* position) {
     {
         int square = PopBit(&whiteRookBitboard);
 
+        // Rook gains a bonus for being located
+        // on seventh rank relative to its colour
+        if (Rank(square) == 6) {
+            scoreMG += RookOnSeventh[MG];
+            scoreEG += RookOnSeventh[EG];
+        }
+
         U64 attacks = rookAttacks(position, square);
         // Mobility
-        mobilityCount = bitCount(attacks & whiteSafeSquares);
+        //mobilityCount = bitCount(attacks & whiteSafeSquares);
+        mobilityCount = bitCount(attacks & whiteMobilityArea);
         scoreMG += RookMobility[MG][mobilityCount];
         scoreEG += RookMobility[EG][mobilityCount];
 
         scoreMG += RookMG[square];
         scoreEG += RookEG[square];
         if (!((whitePawnBitboard | blackPawnBitboard) & FileBBMask[FilesBrd[square]])) {
-            scoreMG += RookOpenFile;
-            scoreEG += RookOpenFile;
+            scoreMG += RookOpenFile[MG];
+            scoreEG += RookOpenFile[EG];
         }
         else if (!(whitePawnBitboard & FileBBMask[FilesBrd[square]])) {
-            scoreMG += RookSemiOpenFile;
-            scoreEG += RookSemiOpenFile;
+            scoreMG += RookSemiOpenFile[MG];
+            scoreEG += RookSemiOpenFile[EG];
         }
 
         // Get the attack counts for this piece
@@ -2299,21 +2381,29 @@ int evaluatePosition(const Board* position) {
     {
         int square = PopBit(&blackRookBitboard);
 
+        // Rook gains a bonus for being located
+        // on seventh rank relative to its colour
+        if (Rank(square) == 1) {
+            scoreMG -= RookOnSeventh[MG];
+            scoreEG -= RookOnSeventh[EG];
+        }
+
         U64 attacks = rookAttacks(position, square);
         // Mobility
-        mobilityCount = bitCount(attacks & blackSafeSquares);
+        //mobilityCount = bitCount(attacks & blackSafeSquares);
+        mobilityCount = bitCount(attacks & blackMobilityArea);
         scoreMG -= RookMobility[MG][mobilityCount];
         scoreEG -= RookMobility[EG][mobilityCount];
 
         scoreMG -= RookMG[mirror[square]];
         scoreEG -= RookEG[mirror[square]];
         if (!((whitePawnBitboard | blackPawnBitboard) & FileBBMask[FilesBrd[square]])) {
-            scoreMG -= RookOpenFile;
-            scoreEG -= RookOpenFile;
+            scoreMG -= RookOpenFile[MG];
+            scoreEG -= RookOpenFile[EG];
         }
         else if (!(blackPawnBitboard & FileBBMask[FilesBrd[square]])) {
-            scoreMG -= RookSemiOpenFile;
-            scoreEG -= RookSemiOpenFile;
+            scoreMG -= RookSemiOpenFile[MG];
+            scoreEG -= RookSemiOpenFile[EG];
         }
 
         // Get the attack counts for this piece
@@ -2333,8 +2423,9 @@ int evaluatePosition(const Board* position) {
         int square = PopBit(&whiteQueenBitboard);
 
         U64 attacks = (rookAttacks(position, square) | bishopAttacks(position, square));
-        /*scoreMG += queenMobility[bitCount(attacks & whiteSafeSquares)];
-        scoreEG += queenMobility[bitCount(attacks & whiteSafeSquares)];*/
+        //mobilityCount = bitCount(attacks & whiteMobilityArea);
+        //scoreMG += QueenMobility[MG][mobilityCount];
+        //scoreEG += QueenMobility[EG][mobilityCount];
 
         scoreMG += QueenMG[square];
         scoreEG += QueenEG[square];
@@ -2350,7 +2441,7 @@ int evaluatePosition(const Board* position) {
         // Get the attack counts for this piece
         attacks = attacks & kingAreas[BLACK];
         if (attacks != 0ULL) {
-            attackCounts[WHITE] += 5 * bitCount(attacks);
+            attackCounts[WHITE] += 4 * bitCount(attacks);
             attackerCounts[WHITE]++;
         }
 
@@ -2364,8 +2455,9 @@ int evaluatePosition(const Board* position) {
         int square = PopBit(&blackQueenBitboard);
 
         U64 attacks = (rookAttacks(position, square) | bishopAttacks(position, square));
-        /*scoreMG -= queenMobility[bitCount(attacks & blackSafeSquares)];
-        scoreEG -= queenMobility[bitCount(attacks & blackSafeSquares)];*/
+        //mobilityCount = bitCount(attacks & blackMobilityArea);
+        //scoreMG -= QueenMobility[MG][mobilityCount];
+        //scoreEG -= QueenMobility[EG][mobilityCount];
 
         scoreMG -= QueenMG[mirror[square]];
         scoreEG -= QueenEG[mirror[square]];
@@ -2381,23 +2473,14 @@ int evaluatePosition(const Board* position) {
         // Get the attack counts for this piece
         attacks = attacks & kingAreas[WHITE];
         if (attacks != 0ULL) {
-            attackCounts[BLACK] -= 5 * bitCount(attacks);
+            attackCounts[BLACK] -= 4 * bitCount(attacks);
             attackerCounts[BLACK]++;
         }
 
         phase -= queenPhase;
     }
 
-    if (bitCount(position->pieceBB[WHITE_BISHOP]) >= 2) {
-        scoreMG += BishopPairMG;
-        scoreEG += BishopPairEG;
-    }
-    if (bitCount(position->pieceBB[BLACK_BISHOP]) >= 2) {
-        scoreMG -= BishopPairMG;
-        scoreEG -= BishopPairEG;
-    }
-
-    if (attackerCounts[BLACK] > 2) {
+    /*if (attackerCounts[BLACK] > 2) {
         int n = attackCounts[BLACK];
         if (n >= 100) n = 99;
 
@@ -2423,6 +2506,43 @@ int evaluatePosition(const Board* position) {
 
         scoreMG += SafetyTable[n];
         scoreEG += SafetyTable[n];
+    }*/
+
+    for (int colour = BLACK; colour >= WHITE; colour--) {
+
+        // Negate the scores so that the scores are from
+        // White's perspective after the loop completes
+        scoreMG = -scoreMG; scoreEG = -scoreEG;
+
+        if (attackerCounts[!colour] > 2) {
+            int n = attackCounts[!colour];
+            if (n >= 100) n = 99;
+
+            if (colour == BLACK)
+            {
+                if (!(position->pieceBB[WHITE_QUEEN]))
+                    n *= .5;
+            }
+            else
+            {
+                if (!(position->pieceBB[BLACK_QUEEN]))
+                    n *= .5;
+            }
+            
+            if (colour == BLACK)
+            {
+                if (!(position->pieceBB[WHITE_ROOK]))
+                    n *= .8;
+            }
+            else
+            {
+                if (!(position->pieceBB[BLACK_ROOK]))
+                    n *= .8;
+            }
+            
+            scoreMG -= SafetyTable[n];
+            scoreEG -= SafetyTable[n];
+        }
     }
 
     // calculating game phase and interpolating score values between phases
@@ -2938,8 +3058,10 @@ static const int R = 2;
 static const int minDepth = 3;
 
 // Razoring Values
-static const int RazorDepth = 3;
-static const int RazorMargin[4] = { 0, 200, 400, 600 };
+//static const int RazorDepth = 3;
+//static const int RazorMargin[4] = { 0, 200, 400, 600 };
+static const int RazorDepth = 4;
+static const int RazorMargin[5] = { 0, 450, 480, 520, 580 };
 
 // Futility Values
 static const int FutilityDepth = 6;
